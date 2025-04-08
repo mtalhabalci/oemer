@@ -490,22 +490,36 @@ def train_model(
 
     print("Initializing model")
     optim = tf.keras.optimizers.Adam(learning_rate=WarmUpLearningRate(learning_rate))
-    #loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=0.1)
-    #loss = tf.keras.losses.CategoricalCrossentropy()
     loss = tfa.losses.SigmoidFocalCrossEntropy()
-    
+
     model.compile(
         optimizer=optim,
-        loss=focal_tversky_loss,  # varsa kendi fonksiyonun
+        loss=focal_tversky_loss,
         metrics=[
             tf.keras.metrics.Precision(name="precision"),
             tf.keras.metrics.Recall(name="recall"),
             F1Score(name="f1_score")
         ]
     )
+
+    os.makedirs("checkpoints", exist_ok=True)
+
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(monitor="val_f1_score", mode="max", patience=early_stop, restore_best_weights=True),
-        tf.keras.callbacks.ModelCheckpoint("seg_unet", save_weights_only=False, monitor='val_accuracy')
+        tf.keras.callbacks.EarlyStopping(
+            monitor="val_f1_score",
+            mode="max",
+            patience=early_stop,
+            restore_best_weights=True
+        ),
+        tf.keras.callbacks.ModelCheckpoint(
+            filepath="checkpoints/epoch_{epoch:02d}_valf1_{val_f1_score:.4f}",
+            monitor="val_f1_score",
+            mode="max",
+            save_best_only=False,
+            save_weights_only=False,
+            verbose=1
+        ),
+        tf.keras.callbacks.CSVLogger("training_log.csv", separator=",", append=True)
     ]
 
     print("Start training")
@@ -518,10 +532,34 @@ def train_model(
             validation_steps=val_steps,
             callbacks=callbacks
         )
+    except Exception as e:
+        print(e)
+        return model
+        # Eğitim tamamlandıktan sonra log ve modelleri zipleyip Drive'a atalım
+    
+    import shutil
+
+    try:
+        shutil.make_archive("training_results", 'zip', '.')
+        print("📦 Tüm log ve modeller training_results.zip içinde arşivlendi.")
+
+        # Drive'a taşı
+        drive_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/15epoch1500step"
+        os.makedirs(drive_path, exist_ok=True)
+        shutil.move("training_results.zip", os.path.join(drive_path, "training_results.zip"))
+        print(f"🚀 Zip dosyası Drive'a taşındı: {drive_path}")
+
+    except Exception as zip_err:
+        print(f"❌ Arşivleme veya taşıma sırasında hata oluştu: {zip_err}")
         return model
     except Exception as e:
         print(e)
         return model
+    
+    print("✅ Eğitim bitti. Oturum kapatılıyor...")
+    import IPython
+    IPython.get_ipython().kernel.do_shutdown(True)
+    return model
 
 
 def resize_image(image: Image.Image):
