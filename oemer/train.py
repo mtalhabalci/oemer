@@ -416,6 +416,24 @@ def focal_tversky_loss(y_true, y_pred, fw=0.7, alpha=0.7, smooth=1., gamma=0.75)
     focal_loss = tfa.losses.sigmoid_focal_crossentropy(y_true, y_pred)
     return fw*focal_loss + (1-fw)*t_loss
 
+class F1Score(tf.keras.metrics.Metric):
+    def __init__(self, name='f1_score', **kwargs):
+        super(F1Score, self).__init__(name=name, **kwargs)
+        self.precision = tf.keras.metrics.Precision()
+        self.recall = tf.keras.metrics.Recall()
+
+    def update_state(self, y_true, y_pred, sample_weight=None):
+        self.precision.update_state(y_true, y_pred, sample_weight)
+        self.recall.update_state(y_true, y_pred, sample_weight)
+
+    def result(self):
+        p = self.precision.result()
+        r = self.recall.result()
+        return 2 * ((p * r) / (p + r + 1e-8))
+
+    def reset_states(self):
+        self.precision.reset_states()
+        self.recall.reset_states()
 
 def train_model(
     dataset_path,
@@ -475,10 +493,18 @@ def train_model(
     #loss = tf.keras.losses.BinaryCrossentropy(label_smoothing=0.1)
     #loss = tf.keras.losses.CategoricalCrossentropy()
     loss = tfa.losses.SigmoidFocalCrossEntropy()
-    model.compile(optimizer=optim, loss=loss, metrics=['accuracy'])
-
+    
+    model.compile(
+        optimizer=optim,
+        loss=focal_tversky_loss,  # varsa kendi fonksiyonun
+        metrics=[
+            tf.keras.metrics.Precision(name="precision"),
+            tf.keras.metrics.Recall(name="recall"),
+            F1Score(name="f1_score")
+        ]
+    )
     callbacks = [
-        tf.keras.callbacks.EarlyStopping(patience=early_stop, monitor='val_accuracy'),
+        tf.keras.callbacks.EarlyStopping(monitor="val_f1_score", mode="max", patience=early_stop, restore_best_weights=True),
         tf.keras.callbacks.ModelCheckpoint("seg_unet", save_weights_only=False, monitor='val_accuracy')
     ]
 
