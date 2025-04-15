@@ -543,25 +543,6 @@ def train_model(
         return model
         # Eğitim tamamlandıktan sonra log ve modelleri zipleyip Drive'a atalım
     
-    import shutil
-
-    try:
-        shutil.make_archive("training_results", 'zip', '.')
-        print("📦 Tüm log ve modeller training_results.zip içinde arşivlendi.")
-
-        # Drive'a taşı
-        drive_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/15epoch1500step"
-        os.makedirs(drive_path, exist_ok=True)
-        shutil.move("training_results.zip", os.path.join(drive_path, "training_results.zip"))
-        print(f"🚀 Zip dosyası Drive'a taşındı: {drive_path}")
-
-    except Exception as zip_err:
-        print(f"❌ Arşivleme veya taşıma sırasında hata oluştu: {zip_err}")
-        return model
-    except Exception as e:
-        print(e)
-        return model
-    
     print("✅ Eğitim bitti. Oturum kapatılıyor...")
     import IPython
     IPython.get_ipython().kernel.do_shutdown(True)

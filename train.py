@@ -38,6 +38,15 @@ elif model_type == "unet":
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
     model.save_weights(os.path.join(filename, "weights.h5"))
+    
+    import shutil
+    import os
+    source_path = "/content/oemer/checkpoints/"
+    target_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/15epoch1500step/"
+    # 🎯 Drive'a taşı
+    shutil.copytree(source_path, target_path)
+    print(f"✅ Model başarıyla Drive'a taşındı: {target_path}")
+    
 elif model_type == "unet_from_checkpoint" or model_type == "segnet_from_checkpoint":
     model = tf.keras.models.load_model("seg_unet", custom_objects={"WarmUpLearningRate": train.WarmUpLearningRate})
     filename = get_model_base_name(model_type.split("_")[0])
