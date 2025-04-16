@@ -541,11 +541,7 @@ def train_model(
     except Exception as e:
         print(e)
         return model
-        # Eğitim tamamlandıktan sonra log ve modelleri zipleyip Drive'a atalım
-    
-    print("✅ Eğitim bitti. Oturum kapatılıyor...")
-    import IPython
-    IPython.get_ipython().kernel.do_shutdown(True)
+
     return model
 
 
