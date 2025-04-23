@@ -32,6 +32,14 @@ if model_type == "segnet":
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
     model.save_weights(os.path.join(filename, "weights.h5"))
+    import shutil
+    import os
+    source_path = "/content/oemer/checkpoints/"
+    target_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/ds2/15epoch1500step/"
+    # 🎯 Drive'a taşı
+    os.makedirs(target_path, exist_ok=True)
+    shutil.copytree(source_path, target_path, dirs_exist_ok=True)
+    print(f"✅ Model başarıyla Drive'a taşındı: {target_path}")
 elif model_type == "unet":
     model = train.train_model("CvcMuscima-Distortions", data_model=model_type, steps=1500, epochs=15)
     filename = get_model_base_name(model_type)
