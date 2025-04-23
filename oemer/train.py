@@ -406,21 +406,15 @@ class WarmUpLearningRate(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
-def focal_tversky_loss(y_true, y_pred, alpha=0.7, gamma=0.75, smooth=1.):
-    # Sınıf ağırlıkları: [background, staffline, symbol]
-    class_weights = tf.constant([0.2, 1.0, 1.0], dtype=tf.float32)
-
-    # Her sınıf için ayrı hesap
-    tp = tf.reduce_sum(y_true * y_pred, axis=[0,1,2])
-    fn = tf.reduce_sum(y_true * (1 - y_pred), axis=[0,1,2])
-    fp = tf.reduce_sum((1 - y_true) * y_pred, axis=[0,1,2])
-
-    tversky = (tp + smooth) / (tp + alpha * fn + (1 - alpha) * fp + smooth)
-    tversky_loss = tf.pow(1 - tversky, gamma)
-
-    weighted_loss = tf.reduce_sum(class_weights * tversky_loss)
-    return weighted_loss
-
+def focal_tversky_loss(y_true, y_pred, fw=0.7, alpha=0.7, smooth=1., gamma=0.75):
+    tp_weight = 0.4  # Reduce the influence of true positive samples (mostly background).
+    tp = tf.reduce_sum(y_true * y_pred) * tp_weight
+    fn = tf.reduce_sum(y_true * (1-y_pred))
+    fp = tf.reduce_sum((1-y_true) * y_pred)
+    tversky = 1 - (tp + smooth) / (tp + alpha*fn + (1-alpha)*fp + smooth)
+    t_loss = tf.pow(tversky, gamma)
+    focal_loss = tfa.losses.sigmoid_focal_crossentropy(y_true, y_pred)
+    return fw*focal_loss + (1-fw)*t_loss
 
 class F1Score(tf.keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
