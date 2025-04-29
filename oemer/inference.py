@@ -70,6 +70,11 @@ def inference(
 
     image_pil = image_pil.convert("RGB")
     image = np.array(resize_image(image_pil))
+    
+    from oemer.utils import save_preprocessed_image
+    save_preprocessed_image(image, "/content/preprocessed_input.png")
+    print("Preprocessed image saved!")
+    
     win_size = input_shape[1]
     data = []
     for y in range(0, image.shape[0], step_size):

@@ -9,6 +9,9 @@ from sklearn.linear_model import LinearRegression
 from . import layers
 from oemer.staffline_extraction import Staff
 
+from PIL import Image
+import numpy as np
+
 def count(data, intervals):
     """Count elements in different intervals"""
     occur = []
@@ -101,3 +104,14 @@ def estimate_degree(points, **kwargs):
 
 def slope_to_degree(y_diff: int, x_diff: int) -> float:
     return np.rad2deg(np.arctan2(y_diff, x_diff))
+
+def save_preprocessed_image(img_array, save_path):
+    # Eğer img_array 0-1 arası normalize edilmişse geri 0-255 yapalım
+    if img_array.max() <= 1.0:
+        img_array = (img_array * 255).astype(np.uint8)
+    else:
+        img_array = img_array.astype(np.uint8)
+
+    # Eğer extra boyutlar (batch, channel) varsa sıkıştıralım
+    img = Image.fromarray(img_array.squeeze())
+    img.save(save_path)
