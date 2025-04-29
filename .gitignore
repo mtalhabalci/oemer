@@ -6,7 +6,7 @@ __pycache__/
 build/
 dist/
 oemer.egg-info/
-checkpoints/
+#checkpoints/
 
 .DS_Store
 
