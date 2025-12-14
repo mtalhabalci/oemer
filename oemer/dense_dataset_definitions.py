@@ -35,6 +35,8 @@ class Symbols:
     SHARP = [74]
     DOUBLE_SHARP = [76]
     ALL_ACCIDENTALS = FLAT + NATURAL + SHARP + DOUBLE_SHARP
+    # Turkish Music Notation accidentals (TMN)
+    TMN_ACCIDENTALS = [209, 210, 211, 212, 213, 214, 215, 216]
     KEY_FLAT = [78]
     KEY_NATURAL = [79]
     KEY_SHARP = [80]

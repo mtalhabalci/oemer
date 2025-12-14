@@ -32,3 +32,8 @@ oemer.egg-info/
 /all_rests_*
 /sfn_*
 /clef_*
+
+# Dataset folders to exclude
+ds2_dense/
+ds2_dense_tmn/
+ds2_dense_tmn3/
