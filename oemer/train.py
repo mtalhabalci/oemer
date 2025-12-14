@@ -6,7 +6,6 @@ from multiprocessing import Process, Queue
 import cv2
 import numpy as np
 import tensorflow as tf
-import tensorflow_addons as tfa
 import augly.image as imaugs
 
 from .build_label import build_label
@@ -407,14 +406,25 @@ class WarmUpLearningRate(tf.keras.optimizers.schedules.LearningRateSchedule):
 
 
 def focal_tversky_loss(y_true, y_pred, fw=0.7, alpha=0.7, smooth=1., gamma=0.75):
+    # Tversky component
     tp_weight = 0.4  # Reduce the influence of true positive samples (mostly background).
     tp = tf.reduce_sum(y_true * y_pred) * tp_weight
-    fn = tf.reduce_sum(y_true * (1-y_pred))
-    fp = tf.reduce_sum((1-y_true) * y_pred)
-    tversky = 1 - (tp + smooth) / (tp + alpha*fn + (1-alpha)*fp + smooth)
+    fn = tf.reduce_sum(y_true * (1 - y_pred))
+    fp = tf.reduce_sum((1 - y_true) * y_pred)
+    tversky = 1 - (tp + smooth) / (tp + alpha * fn + (1 - alpha) * fp + smooth)
     t_loss = tf.pow(tversky, gamma)
-    focal_loss = tfa.losses.sigmoid_focal_crossentropy(y_true, y_pred)
-    return fw*focal_loss + (1-fw)*t_loss
+
+    # Focal component (custom sigmoid focal cross entropy)
+    epsilon = tf.keras.backend.epsilon()
+    y_pred = tf.clip_by_value(y_pred, epsilon, 1.0 - epsilon)
+    ce = -(y_true * tf.math.log(y_pred) + (1 - y_true) * tf.math.log(1 - y_pred))
+    pt = tf.where(tf.equal(y_true, 1.0), y_pred, 1.0 - y_pred)
+    alpha_f = 0.25  # class balance factor
+    gamma_f = 2.0   # focusing parameter
+    focal = alpha_f * tf.pow(1.0 - pt, gamma_f) * ce
+    focal_loss = tf.reduce_mean(focal)
+
+    return fw * focal_loss + (1 - fw) * t_loss
 
 class F1Score(tf.keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
@@ -490,7 +500,8 @@ def train_model(
 
     print("Initializing model")
     optim = tf.keras.optimizers.Adam(learning_rate=WarmUpLearningRate(learning_rate))
-    loss = tfa.losses.SigmoidFocalCrossEntropy()
+    # loss object unused; focal_tversky_loss is used directly below
+    loss = None
 
     model.compile(
         optimizer=optim,
