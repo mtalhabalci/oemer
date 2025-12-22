@@ -5,6 +5,7 @@ import numpy as np
 from PIL import Image
 
 from oemer.inference import inference as seg_inference
+from oemer.inference import resize_image as _infer_resize
 
 
 def draw_bboxes_on_image(img_np: np.ndarray, bboxes, color=(0, 255, 0), thickness=2):
@@ -39,8 +40,10 @@ def main():
         manual_th=None,
         use_tf=True,
     )
-    img_gray = Image.open(args.image).convert("L")
-    img_np = np.array(img_gray)
+    # Use the same resizing logic as inference to align masks and drawing
+    _pil = Image.open(args.image).convert("RGB")
+    _pil_resized = _infer_resize(_pil)
+    img_np = np.array(_pil_resized.convert("L"))
 
     # Colors per class
     class_colors = {

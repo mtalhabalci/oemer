@@ -565,7 +565,7 @@ def resize_image(image: Image.Image):
     # Best number would be 3M~4.35M pixels.
     w, h = image.size
     pis = w * h
-    if 3000000 <= pis <= 435000:
+    if 3000000 <= pis <= 4350000:
         return image
     lb = 3000000 / pis
     ub = 4350000 / pis
