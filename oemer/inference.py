@@ -9,6 +9,7 @@ import numpy as np
 from numpy import ndarray
 
 from oemer import MODULE_PATH
+from oemer.train import WarmUpLearningRate, focal_tversky_loss, F1Score
 
 
 def resize_image(image: Image.Image):
@@ -38,10 +39,20 @@ def inference(
     if use_tf:
         import tensorflow as tf
 
-        arch_path = os.path.join(model_path, "arch.json")
-        w_path = os.path.join(model_path, "weights.h5")
-        model = tf.keras.models.model_from_json(open(arch_path, "r").read())
-        model.load_weights(w_path)
+        # Prefer loading the full Keras model if present; fallback to arch+weights
+        keras_model_path = os.path.join(model_path, "model.keras")
+        custom_objects = {
+            "WarmUpLearningRate": WarmUpLearningRate,
+            "focal_tversky_loss": focal_tversky_loss,
+            "F1Score": F1Score,
+        }
+        if os.path.exists(keras_model_path):
+            model = tf.keras.models.load_model(keras_model_path, custom_objects=custom_objects)
+        else:
+            arch_path = os.path.join(model_path, "arch.json")
+            w_path = os.path.join(model_path, "weights.h5")
+            model = tf.keras.models.model_from_json(open(arch_path, "r").read(), custom_objects=custom_objects)
+            model.load_weights(w_path)
         input_shape = model.input_shape
         output_shape = model.output_shape
     else:

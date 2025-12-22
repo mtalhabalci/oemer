@@ -11,6 +11,13 @@ import augly.image as imaugs
 from .build_label import build_label
 from .models.unet import semantic_segmentation, u_net
 from .constant_min import CHANNEL_NUM
+try:
+    from keras.saving import register_keras_serializable
+except Exception:
+    def register_keras_serializable(*args, **kwargs):
+        def deco(obj):
+            return obj
+        return deco
 
 
 
@@ -373,6 +380,7 @@ def lr_scheduler(epoch, lr, update_after=5, dec_every=3, dec_rate=0.5):
     return max(lr, 5e-8)
 
 
+@register_keras_serializable(package="oemer")
 class WarmUpLearningRate(tf.keras.optimizers.schedules.LearningRateSchedule):
     def __init__(self, init_lr=0.1, warm_up_steps=1000, decay_step=3000, decay_rate=0.25, min_lr=1e-8):
         self.init_lr = init_lr
@@ -405,6 +413,7 @@ class WarmUpLearningRate(tf.keras.optimizers.schedules.LearningRateSchedule):
         }
 
 
+@register_keras_serializable(package="oemer")
 def focal_tversky_loss(y_true, y_pred, fw=0.7, alpha=0.7, smooth=1., gamma=0.75):
     # Tversky component
     tp_weight = 0.4  # Reduce the influence of true positive samples (mostly background).
@@ -426,6 +435,7 @@ def focal_tversky_loss(y_true, y_pred, fw=0.7, alpha=0.7, smooth=1., gamma=0.75)
 
     return fw * focal_loss + (1 - fw) * t_loss
 
+@register_keras_serializable(package="oemer")
 class F1Score(tf.keras.metrics.Metric):
     def __init__(self, name='f1_score', **kwargs):
         super(F1Score, self).__init__(name=name, **kwargs)
