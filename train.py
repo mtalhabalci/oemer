@@ -38,6 +38,10 @@ parser.add_argument("model_name", help="Model type to train",
                         "unet_from_checkpoint", "segnet_from_checkpoint",
                         "rests_above8", "rests", "all_rests", "sfn", "clef"
                     ])
+parser.add_argument("--epochs", dest="epochs", type=int, default=None,
+                    help="Number of epochs to train (default: 15)")
+parser.add_argument("--steps", dest="steps", type=int, default=None,
+                    help="Steps per epoch (default: 1500)")
 parser.add_argument("--dataset-path", dest="dataset_path", default=None,
                     help="Dataset root path. For segnet, expects 'images/' and 'segmentation/' subfolders.")
 parser.add_argument("--source-path", dest="source_path", default=None,
@@ -69,7 +73,12 @@ if model_type == "segnet":
     if not ds_path or not os.path.isdir(ds_path):
         print(f"Dataset path not found. Provide --dataset-path or set OEMER_DATASET_PATH. Got: {ds_path}")
         sys.exit(2)
-    model = train.train_model(ds_path, data_model=model_type, steps=1500, epochs=15)
+    model = train.train_model(
+        ds_path,
+        data_model=model_type,
+        steps=args.steps or 1500,
+        epochs=args.epochs or 15,
+    )
     filename = get_model_base_name(model_type)
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
@@ -136,7 +145,12 @@ elif model_type == "unet":
     if not ds_path or not os.path.isdir(ds_path):
         print(f"Dataset path not found. Provide --dataset-path or set OEMER_DATASET_PATH. Got: {ds_path}")
         sys.exit(2)
-    model = train.train_model(ds_path, data_model=model_type, steps=1500, epochs=15)
+    model = train.train_model(
+        ds_path,
+        data_model=model_type,
+        steps=args.steps or 1500,
+        epochs=args.epochs or 15,
+    )
     filename = get_model_base_name(model_type)
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
