@@ -50,6 +50,8 @@ parser.add_argument("--target-path", dest="target_path", default=None,
                     help="Target directory in Drive to copy checkpoints into")
 parser.add_argument("--final-path", dest="final_path", default=None,
                     help="Target directory in Drive to copy the final model folder into")
+parser.add_argument("--shutdown", dest="shutdown", action="store_true",
+                    help="If set, terminate the Colab runtime after training finishes")
 args = parser.parse_args()
 
 def get_model_base_name(model_name: str) -> str:
@@ -72,6 +74,22 @@ if model_type == "segnet":
     )
     if not ds_path or not os.path.isdir(ds_path):
         print(f"Dataset path not found. Provide --dataset-path or set OEMER_DATASET_PATH. Got: {ds_path}")
+
+    def _attempt_shutdown():
+        # Terminate Colab runtime to save credits; no-op outside Colab
+        if not _is_colab():
+            return
+        try:
+            # Prefer Colab runtime API
+            from google.colab import runtime  # type: ignore
+            runtime.unassign()
+        except Exception:
+            pass
+        try:
+            import signal
+            os.kill(os.getpid(), signal.SIGKILL)
+        except Exception:
+            pass
         sys.exit(2)
     model = train.train_model(
         ds_path,
@@ -136,6 +154,9 @@ if model_type == "segnet":
         os.makedirs(final_base, exist_ok=True)
         shutil.copytree(filename, dst_final, dirs_exist_ok=True)
         print(f"✅ Nihai model çıktı klasörü kopyalandı: {dst_final}")
+    if args.shutdown:
+        print("🔌 Colab oturumu sonlandırılıyor (shutdown)")
+        _attempt_shutdown()
 elif model_type == "unet":
     ds_path = (
         args.dataset_path
@@ -203,6 +224,9 @@ elif model_type == "unet":
         os.makedirs(final_base, exist_ok=True)
         shutil.copytree(filename, dst_final, dirs_exist_ok=True)
         print(f"✅ Nihai model çıktı klasörü kopyalandı: {dst_final}")
+    if args.shutdown:
+        print("🔌 Colab oturumu sonlandırılıyor (shutdown)")
+        _attempt_shutdown()
     
 elif model_type == "unet_from_checkpoint" or model_type == "segnet_from_checkpoint":
     model = tf.keras.models.load_model("seg_unet", custom_objects={"WarmUpLearningRate": train.WarmUpLearningRate})
@@ -221,6 +245,9 @@ elif model_type == "unet_from_checkpoint" or model_type == "segnet_from_checkpoi
         model.save(os.path.join(filename, "model.keras"))
     except Exception as e:
         print(f"Full model save skipped: {e}")
+    if args.shutdown:
+        print("🔌 Colab oturumu sonlandırılıyor (shutdown)")
+        _attempt_shutdown()
 elif model_type == "rests_above8":
     prepare_classifier_data()
     classifier.train_rests_above8(get_model_base_name(model_type))
