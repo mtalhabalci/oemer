@@ -523,11 +523,11 @@ def train_model(
             restore_best_weights=True
         ),
         tf.keras.callbacks.ModelCheckpoint(
-            filepath="checkpoints/epoch_{epoch:02d}_valf1_{val_f1_score:.4f}",
+            filepath="checkpoints/epoch_{epoch:02d}_valf1_{val_f1_score:.4f}.weights.h5",
             monitor="val_f1_score",
             mode="max",
             save_best_only=False,
-            save_weights_only=False,
+            save_weights_only=True,
             verbose=1
         ),
         tf.keras.callbacks.CSVLogger("training_log.csv", separator=",", append=True)

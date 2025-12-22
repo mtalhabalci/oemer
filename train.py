@@ -1,6 +1,7 @@
 import sys
 import time
 import os
+import argparse
 
 import tensorflow as tf
 
@@ -12,36 +13,49 @@ def write_text_to_file(text, path):
     with open(path, "w") as f:
         f.write(text)
 
-if len(sys.argv) != 2:
-    print("Usage: python train.py <model_name>")
-    sys.exit(1)
+parser = argparse.ArgumentParser(description="Train models and manage checkpoints.")
+parser.add_argument("model_name", help="Model type to train",
+                    choices=[
+                        "segnet", "unet",
+                        "unet_from_checkpoint", "segnet_from_checkpoint",
+                        "rests_above8", "rests", "all_rests", "sfn", "clef"
+                    ])
+parser.add_argument("--dataset-path", dest="dataset_path", default=None,
+                    help="Dataset root path. For segnet, expects 'images/' and 'segmentation/' subfolders.")
+parser.add_argument("--source-path", dest="source_path", default=None,
+                    help="Source checkpoints directory to copy from (default depends on model)")
+parser.add_argument("--target-path", dest="target_path", default=None,
+                    help="Target directory in Drive to copy checkpoints into")
+args = parser.parse_args()
 
 def get_model_base_name(model_name: str) -> str:
     timestamp = str(round(time.time()))
     return f"{model_name}_{timestamp}"
 
-model_type = sys.argv[1]
+model_type = args.model_name
 
 def prepare_classifier_data():
     if not os.path.exists("train_data"):
         classifier.collect_data(2000)
 
 if model_type == "segnet":
-    model = train.train_model("ds2_dense", data_model=model_type, steps=1500, epochs=15)
+    ds_path = args.dataset_path or "/content/drive/MyDrive/omr_dataset/dataset/ds2/ds2_dense_tmn"
+    model = train.train_model(ds_path, data_model=model_type, steps=1500, epochs=15)
     filename = get_model_base_name(model_type)
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
     model.save_weights(os.path.join(filename, "weights.h5"))
     import shutil
     import os
-    source_path = "/content/oemer/checkpoints/"
-    target_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/ds2/15epoch1500step/"
+    source_path = args.source_path or "/content/oemer/checkpoints/"
+    target_path = args.target_path or "/content/drive/MyDrive/omr_dataset/train/ds2_dense_segnet/15epoch1500step/"
     # 🎯 Drive'a taşı
     os.makedirs(target_path, exist_ok=True)
     shutil.copytree(source_path, target_path, dirs_exist_ok=True)
     print(f"✅ Model başarıyla Drive'a taşındı: {target_path}")
 elif model_type == "unet":
-    model = train.train_model("CvcMuscima-Distortions", data_model=model_type, steps=1500, epochs=15)
+    ds_path = args.dataset_path or "CvcMuscima-Distortions"
+    model = train.train_model(ds_path, data_model=model_type, steps=1500, epochs=15)
     filename = get_model_base_name(model_type)
     os.makedirs(filename)
     write_text_to_file(model.to_json(), os.path.join(filename, "arch.json"))
@@ -49,10 +63,11 @@ elif model_type == "unet":
     
     import shutil
     import os
-    source_path = "/content/oemer/checkpoints/"
-    target_path = "/content/drive/MyDrive/oemer_dataset/trainedmodel/15epoch1500step/"
+    source_path = args.source_path or "/content/oemer/checkpoints/"
+    target_path = args.target_path or "/content/drive/MyDrive/oemer_dataset/trainedmodel/15epoch1500step/"
     # 🎯 Drive'a taşı
-    shutil.copytree(source_path, target_path)
+    os.makedirs(target_path, exist_ok=True)
+    shutil.copytree(source_path, target_path, dirs_exist_ok=True)
     print(f"✅ Model başarıyla Drive'a taşındı: {target_path}")
     
 elif model_type == "unet_from_checkpoint" or model_type == "segnet_from_checkpoint":
