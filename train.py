@@ -259,7 +259,40 @@ elif model_type == "all_rests":
     classifier.train_all_rests(get_model_base_name(model_type))
 elif model_type == "sfn":
     prepare_classifier_data()
-    classifier.train_sfn(get_model_base_name(model_type))
+    fname = get_model_base_name(model_type)
+    classifier.train_sfn(fname)
+    # SFN modeli tek bir .model dosyası olarak kaydediliyor; kopyalamaları yapalım
+    import shutil as _shutil
+    try:
+        os.makedirs(os.path.join("oemer", "sklearn_models"), exist_ok=True)
+        _shutil.copyfile(fname, os.path.join("oemer", "sklearn_models", "sfn.model"))
+        print(f"✅ SFN model kopyalandı: {os.path.join('oemer','sklearn_models','sfn.model')}")
+    except Exception as e:
+        print(f"SFN yerel kopya atlandı: {e}")
+    # Drive'a nihai kopya
+    final_base = args.final_path or _env("OEMER_FINAL_PATH") or (
+        "/content/drive/MyDrive/omr_dataset/train/ds2_dense_sfn/final_model/" if _drive_mounted() else None
+    )
+    if final_base:
+        os.makedirs(final_base, exist_ok=True)
+        dst_final = os.path.join(final_base, f"{fname}.model")
+        try:
+            _shutil.copyfile(fname, dst_final)
+            print(f"✅ Nihai SFN model çıktı kopyalandı: {dst_final}")
+        except Exception as e:
+            print(f"SFN model final kopya başarısız: {e}")
+    # Hedef kopya (segnette checkpoint'ler için kullanılıyordu; burada model dosyasını kopyalıyoruz)
+    target_path = args.target_path or _env("OEMER_TARGET_PATH") or (
+        "/content/drive/MyDrive/omr_dataset/train/ds2_dense_sfn/15epoch/" if _drive_mounted() else None
+    )
+    if target_path:
+        os.makedirs(target_path, exist_ok=True)
+        dst_target = os.path.join(target_path, f"{fname}.model")
+        try:
+            _shutil.copyfile(fname, dst_target)
+            print(f"✅ SFN model hedefe kopyalandı: {dst_target}")
+        except Exception as e:
+            print(f"SFN model hedef kopya başarısız: {e}")
 elif model_type == "clef":
     prepare_classifier_data()
     classifier.train_clefs(get_model_base_name(model_type))
