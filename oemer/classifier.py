@@ -1,5 +1,6 @@
 import random
 import pickle
+import os
 from os import remove
 from pathlib import Path
 from PIL import Image
@@ -27,7 +28,23 @@ TARGET_WIDTH = 40
 TARGET_HEIGHT = 70
 DISTANCE = 10
 
-DATASET_PATH = "./ds2_dense/segmentation"
+def _is_colab() -> bool:
+    try:
+        return os.path.exists("/content")
+    except Exception:
+        return False
+
+def _env(name: str, default: str | None = None) -> str | None:
+    return os.environ.get(name, default)
+
+# Ortam/Colab duyarlı varsayılan veri yolu:
+# 1) OEMER_DATASET_PATH env değişkeni varsa onu kullan
+# 2) Colab ise Drive'daki ds2_dense_tmn/segmentation yolunu kullan
+# 3) Yerelde varsayılan ./ds2_dense/segmentation
+DATASET_PATH = (
+    _env("OEMER_DATASET_PATH")
+    or ("/content/drive/MyDrive/omr_dataset/dataset/ds2/ds2_dense_tmn/segmentation" if _is_colab() else "./ds2_dense/segmentation")
+)
 
 
 def _collect(color, out_path, samples=100):
@@ -82,6 +99,16 @@ def collect_data(samples=400):
         103: 'rest_64th',
         10: 'gclef',
         13: 'fclef',
+        
+        # tmn sembolleri
+        216: "tmn_9_diyez",
+        215: "tmn_9_bemol",
+        214: "tmn_8_diyez",
+        213: "tmn_8_bemol",
+        212: "tmn_5_diyez",
+        211: "tmn_4_bemol",
+        210: "tmn_1_diyez",
+        209: "tmn_1_bemol",
     }
 
     for color, name in color_map.items():
@@ -262,7 +289,22 @@ def train_all_rests(filename = "all_rests.model"):
 
 
 def train_sfn(filename = "sfn.model"):
+    base = Path("train_data")
     folders = ["sharp", "flat", "natural"]
+    if base.exists():
+        # Auto-detect TMN classes collected via categories.json
+        detected = []
+        for d in base.iterdir():
+            try:
+                if d.is_dir():
+                    n = d.name
+                    if n in {"sharp", "flat", "natural"} or n.startswith("tmn_"):
+                        detected.append(n)
+            except Exception:
+                continue
+        detected = sorted(set(detected))
+        if len(detected) >= 3:
+            folders = detected
     model, class_map = train_tf([f"train_data/{folder}" for folder in folders])
     test_tf(model, [f"test_data/{folder}" for folder in folders])
     output = {'model': model, 'w': TARGET_WIDTH, 'h': TARGET_HEIGHT, 'class_map': class_map}
