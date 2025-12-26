@@ -49,8 +49,8 @@ DATASET_PATH = (
 
 def _collect(color, out_path, samples=100):
     out_path = Path(out_path)
-    if not out_path.exists():
-        out_path.mkdir()
+    # Klasörleri ebeveynleriyle birlikte oluştur
+    out_path.mkdir(parents=True, exist_ok=True)
 
     cur_samples = 0
     add_space = 10
