@@ -29,7 +29,7 @@ def main():
     parser.add_argument("--step-size", type=int, default=128, help="Sliding window step size (default: 128)")
     parser.add_argument("--batch-size", type=int, default=16, help="Batch size for inference (default: 16)")
     parser.add_argument("--use-tf", action="store_true", help="Use TensorFlow for segmentation inference (default: onnxruntime)")
-    parser.add_argument("--rest-model", default="rests", help="Rest classifier model name (rests | all_rests | rests_above8)")
+    parser.add_argument("--rest-model", default=None, help="Rest classifier model name (rests | all_rests | rests_above8). If omitted, auto-selects the most detailed available.")
     parser.add_argument("--clef-area-th", type=int, default=1200, help="Area threshold to treat a group-3 bbox as clef (else SFN/TMN)")
     parser.add_argument("--stem_aspect_th", type=float, default=3.0, help="Aspect ratio h/w threshold to consider a bbox as stem/barline (skip labeling)")
     args = parser.parse_args()
@@ -38,6 +38,26 @@ def main():
         raise FileNotFoundError(f"Model dir not found: {args.model_dir}")
     if not os.path.exists(args.image):
         raise FileNotFoundError(f"Image not found: {args.image}")
+
+    # Resolve rest model name (auto-prefer all_rests if available)
+    from pathlib import Path
+    here = Path(__file__).resolve()
+    repo_root = here.parent.parent  # .../repo/oemer
+    rest_base = os.path.join(str(repo_root), "sklearn_models")
+    def _exists(model_name: str) -> bool:
+        nested = os.path.join(rest_base, model_name, f"{model_name}.model")
+        flat = os.path.join(rest_base, f"{model_name}.model")
+        return os.path.exists(nested) or os.path.exists(flat)
+    chosen_rest = args.rest_model
+    if not chosen_rest:
+        if _exists("all_rests"):
+            chosen_rest = "all_rests"
+        elif _exists("rests"):
+            chosen_rest = "rests"
+        elif _exists("rests_above8"):
+            chosen_rest = "rests_above8"
+        else:
+            chosen_rest = "rests"  # fallback
 
     # Run segmentation inference
     class_map, _ = seg_inference(
@@ -111,7 +131,7 @@ def main():
             continue
         # Treat as rest
         try:
-            label = classifier.predict(region, args.rest_model)
+            label = classifier.predict(region, chosen_rest)
         except Exception:
             label = "rest"
         color = colors.get("rest")
