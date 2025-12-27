@@ -1,6 +1,7 @@
 import random
 import pickle
 import os
+import os
 from os import remove
 from pathlib import Path
 from PIL import Image
@@ -256,13 +257,62 @@ def test_tf(model, folders):
 def predict(region, model_name):
     if np.max(region) == 1:
         region *= 255
-    m_info = pickle.load(open(f"sklearn_models/{model_name}.model", "rb"))
-    model = m_info['model']
-    w = m_info['w']
-    h = m_info['h']
-    region = Image.fromarray(region.astype(np.uint8)).resize((w, h))
-    pred = model.predict(np.array(region).reshape(1, -1))
-    return m_info['class_map'][pred[0]]
+    base_dir = os.path.join("sklearn_models")
+    nested_dir = os.path.join(base_dir, model_name)
+    # Prefer nested folder structure sklearn_models/<model_name>/
+    pkl_path_nested = os.path.join(nested_dir, f"{model_name}.model")
+    keras_path_nested = os.path.join(nested_dir, f"{model_name}.keras")
+    meta_path_nested = os.path.join(nested_dir, f"{model_name}_meta.pkl")
+    # Also support flat structure for backward compatibility
+    pkl_path = os.path.join(base_dir, f"{model_name}.model")
+    keras_path = os.path.join(base_dir, f"{model_name}.keras")
+    meta_path = os.path.join(base_dir, f"{model_name}_meta.pkl")
+
+    # Prefer nested pickle if present, else flat pickle
+    if os.path.exists(pkl_path_nested) or os.path.exists(pkl_path):
+        load_path = pkl_path_nested if os.path.exists(pkl_path_nested) else pkl_path
+        m_info = pickle.load(open(load_path, "rb"))
+        # If pickle carries a Keras path, use lightweight Keras inference
+        if 'keras_path' in m_info:
+            import tensorflow as tf
+            w = m_info['w']; h = m_info['h']; class_map = m_info['class_map']
+            # Resolve keras path: allow relative path inside nested dir
+            model_file = m_info.get('keras_path')
+            if not model_file or not os.path.exists(model_file):
+                # Try nested then flat
+                model_file = keras_path_nested if os.path.exists(keras_path_nested) else keras_path
+            model = tf.keras.models.load_model(model_file)
+            img = Image.fromarray(region.astype(np.uint8)).resize((w, h))
+            arr = np.array(img)[np.newaxis, ..., np.newaxis]
+            pred = model.predict(arr)
+            idx = int(np.argmax(pred, axis=-1)[0])
+            return class_map[idx]
+        # Otherwise assume sklearn-style model
+        model = m_info['model']
+        w = m_info['w']
+        h = m_info['h']
+        img = Image.fromarray(region.astype(np.uint8)).resize((w, h))
+        pred = model.predict(np.array(img).reshape(1, -1))
+        return m_info['class_map'][pred[0]]
+
+    # Fallback: standalone Keras + meta files (prefer nested)
+    if (os.path.exists(keras_path_nested) and os.path.exists(meta_path_nested)) or (os.path.exists(keras_path) and os.path.exists(meta_path)):
+        import tensorflow as tf
+        meta_file = meta_path_nested if os.path.exists(meta_path_nested) else meta_path
+        keras_file = keras_path_nested if os.path.exists(keras_path_nested) else keras_path
+        meta = pickle.load(open(meta_file, "rb"))
+        w = meta['w']; h = meta['h']; class_map = meta['class_map']
+        model = tf.keras.models.load_model(keras_file)
+        img = Image.fromarray(region.astype(np.uint8)).resize((w, h))
+        arr = np.array(img)[np.newaxis, ..., np.newaxis]
+        pred = model.predict(arr)
+        idx = int(np.argmax(pred, axis=-1)[0])
+        return class_map[idx]
+
+    raise FileNotFoundError(
+        f"No model found for '{model_name}'. Expected one of: {pkl_path_nested} or ({keras_path_nested} + {meta_path_nested})"
+        f" or flat paths {pkl_path} or ({keras_path} + {meta_path})."
+    )
 
 def train_rests_above8(filename = "rests_above8.model"):
     folders = ["rest_8th", "rest_16th", "rest_32nd", "rest_64th"]
@@ -307,8 +357,30 @@ def train_sfn(filename = "sfn.model"):
             folders = detected
     model, class_map = train_tf([f"train_data/{folder}" for folder in folders])
     test_tf(model, [f"test_data/{folder}" for folder in folders])
-    output = {'model': model, 'w': TARGET_WIDTH, 'h': TARGET_HEIGHT, 'class_map': class_map}
-    pickle.dump(output, open(filename, "wb"))
+    # Küçük format + nested kayıt: sklearn_models/sfn/
+    try:
+        import tensorflow as tf
+        base_dir = os.path.join("sklearn_models")
+        nested_dir = os.path.join(base_dir, "sfn")
+        os.makedirs(nested_dir, exist_ok=True)
+        keras_out = os.path.join(nested_dir, "sfn.keras")
+        meta_out = os.path.join(nested_dir, "sfn_meta.pkl")
+        pointer_out = os.path.join(nested_dir, "sfn.model")
+        model.save(keras_out)
+        pickle.dump({"class_map": class_map, "w": TARGET_WIDTH, "h": TARGET_HEIGHT}, open(meta_out, "wb"))
+        pickle.dump({"keras_path": keras_out, "class_map": class_map, "w": TARGET_WIDTH, "h": TARGET_HEIGHT}, open(pointer_out, "wb"))
+        # Eski çağrılar için filename'e de pointer yaz (eğer farklıysa)
+        if filename and filename != pointer_out:
+            try:
+                pickle.dump({"keras_path": keras_out, "class_map": class_map, "w": TARGET_WIDTH, "h": TARGET_HEIGHT}, open(filename, "wb"))
+            except Exception:
+                pass
+        print(f"✅ SFN küçük format üretildi: {keras_out}, {pointer_out}")
+    except Exception as e:
+        # Geriye uyumluluk: büyük pickle yaz
+        output = {'model': model, 'w': TARGET_WIDTH, 'h': TARGET_HEIGHT, 'class_map': class_map}
+        pickle.dump(output, open(filename, "wb"))
+        print(f"⚠️ Küçük format başarısız, büyük pickle yazıldı: {filename} -> {e}")
 
 
 def train_clefs(filename = "clef.model"):

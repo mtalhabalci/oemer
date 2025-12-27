@@ -31,6 +31,15 @@ def _drive_mounted() -> bool:
 def _env(name: str, default: str | None = None) -> str | None:
     return os.environ.get(name, default)
 
+def _attempt_shutdown():
+    # Ortama göre kapatma; yerelde/no-op
+    try:
+        # Colab'ta kapatma denemesi — yerelde sessiz geçilir
+        import os
+        os._exit(0)
+    except Exception:
+        pass
+
 parser = argparse.ArgumentParser(description="Train models and manage checkpoints.")
 parser.add_argument("model_name", help="Model type to train",
                     choices=[
@@ -261,38 +270,55 @@ elif model_type == "sfn":
     prepare_classifier_data()
     fname = get_model_base_name(model_type)
     classifier.train_sfn(fname)
-    # SFN modeli tek bir .model dosyası olarak kaydediliyor; kopyalamaları yapalım
+    # SFN: Büyük pickle'i küçük Keras + pointer formuna dönüştür ve kopyala
     import shutil as _shutil
     try:
-        os.makedirs(os.path.join("oemer", "sklearn_models"), exist_ok=True)
-        _shutil.copyfile(fname, os.path.join("oemer", "sklearn_models", "sfn.model"))
-        print(f"✅ SFN model kopyalandı: {os.path.join('oemer','sklearn_models','sfn.model')}")
+        import pickle as _pickle
+        m_info = _pickle.load(open(fname, "rb"))
+        model = m_info["model"]
+        class_map = m_info["class_map"]; w = m_info["w"]; h = m_info["h"]
+        base_dir = os.path.join("sklearn_models")
+        nested_dir = os.path.join(base_dir, "sfn")
+        os.makedirs(nested_dir, exist_ok=True)
+        keras_out = os.path.join(nested_dir, "sfn.keras")
+        pointer_out = os.path.join(nested_dir, "sfn.model")
+        try:
+            model.save(keras_out)
+            _pickle.dump({"keras_path": keras_out, "class_map": class_map, "w": w, "h": h}, open(pointer_out, "wb"))
+            print(f"✅ SFN küçük format üretildi: {keras_out}, {pointer_out}")
+        except Exception as e:
+            # Dönüşüm başarısız olursa eski büyük dosyayı kopyala
+            _shutil.copyfile(fname, pointer_out)
+            print(f"⚠️ Küçük format üretimi başarısız, büyük model kopyalandı: {pointer_out} -> {e}")
     except Exception as e:
-        print(f"SFN yerel kopya atlandı: {e}")
+        print(f"SFN dönüştürme atlandı: {e}")
     # Drive'a nihai kopya
     final_base = args.final_path or _env("OEMER_FINAL_PATH") or (
         "/content/drive/MyDrive/omr_dataset/train/ds2_dense_sfn/final_model/" if _drive_mounted() else None
     )
     if final_base:
         os.makedirs(final_base, exist_ok=True)
-        dst_final = os.path.join(final_base, f"{fname}.model")
+        # Tüm sfn klasörünü kopyala
+        src_sfn_dir = os.path.join("sklearn_models", "sfn")
+        dst_sfn_dir = os.path.join(final_base, "sfn")
         try:
-            _shutil.copyfile(fname, dst_final)
-            print(f"✅ Nihai SFN model çıktı kopyalandı: {dst_final}")
+            _shutil.copytree(src_sfn_dir, dst_sfn_dir, dirs_exist_ok=True)
+            print(f"✅ Nihai SFN klasörü kopyalandı: {dst_sfn_dir}")
         except Exception as e:
-            print(f"SFN model final kopya başarısız: {e}")
+            print(f"SFN klasör final kopya başarısız: {e}")
     # Hedef kopya (segnette checkpoint'ler için kullanılıyordu; burada model dosyasını kopyalıyoruz)
     target_path = args.target_path or _env("OEMER_TARGET_PATH") or (
         "/content/drive/MyDrive/omr_dataset/train/ds2_dense_sfn/15epoch/" if _drive_mounted() else None
     )
     if target_path:
         os.makedirs(target_path, exist_ok=True)
-        dst_target = os.path.join(target_path, f"{fname}.model")
+        src_sfn_dir = os.path.join("sklearn_models", "sfn")
+        dst_sfn_dir = os.path.join(target_path, "sfn")
         try:
-            _shutil.copyfile(fname, dst_target)
-            print(f"✅ SFN model hedefe kopyalandı: {dst_target}")
+            _shutil.copytree(src_sfn_dir, dst_sfn_dir, dirs_exist_ok=True)
+            print(f"✅ SFN klasörü hedefe kopyalandı: {dst_sfn_dir}")
         except Exception as e:
-            print(f"SFN model hedef kopya başarısız: {e}")
+            print(f"SFN klasör hedef kopya başarısız: {e}")
 elif model_type == "clef":
     prepare_classifier_data()
     classifier.train_clefs(get_model_base_name(model_type))
