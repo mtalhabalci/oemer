@@ -1,6 +1,7 @@
 import random
 import pickle
 import os
+from pathlib import Path
 import os
 from os import remove
 from pathlib import Path
@@ -257,29 +258,32 @@ def test_tf(model, folders):
 def predict(region, model_name):
     if np.max(region) == 1:
         region *= 255
-    base_dir = os.path.join("sklearn_models")
+    # Tek bir sabit kök: repo kökü (..../oemer/oemer/oemer -> repo root)
+    here = Path(__file__).resolve()
+    repo_root = here.parent.parent.parent
+    # Kullanım: <repo>/oemer/sklearn_models tercih edilir
+    base_dir = os.path.join(str(repo_root), "oemer", "sklearn_models")
     nested_dir = os.path.join(base_dir, model_name)
-    # Prefer nested folder structure sklearn_models/<model_name>/
+    # Nested yapıyı tercih et
     pkl_path_nested = os.path.join(nested_dir, f"{model_name}.model")
     keras_path_nested = os.path.join(nested_dir, f"{model_name}.keras")
     meta_path_nested = os.path.join(nested_dir, f"{model_name}_meta.pkl")
-    # Also support flat structure for backward compatibility
+    # Düz (flat) yapı da desteklenir
     pkl_path = os.path.join(base_dir, f"{model_name}.model")
     keras_path = os.path.join(base_dir, f"{model_name}.keras")
     meta_path = os.path.join(base_dir, f"{model_name}_meta.pkl")
 
-    # Prefer nested pickle if present, else flat pickle
+    # Önce pickle (pointer ya da sklearn)
     if os.path.exists(pkl_path_nested) or os.path.exists(pkl_path):
         load_path = pkl_path_nested if os.path.exists(pkl_path_nested) else pkl_path
         m_info = pickle.load(open(load_path, "rb"))
-        # If pickle carries a Keras path, use lightweight Keras inference
         if 'keras_path' in m_info:
             import tensorflow as tf
             w = m_info['w']; h = m_info['h']; class_map = m_info['class_map']
-            # Resolve keras path: allow relative path inside nested dir
             model_file = m_info.get('keras_path')
-            if not model_file or not os.path.exists(model_file):
-                # Try nested then flat
+            if not model_file or not os.path.isabs(model_file):
+                model_file = os.path.join(os.path.dirname(load_path), f"{model_name}.keras")
+            if not os.path.exists(model_file):
                 model_file = keras_path_nested if os.path.exists(keras_path_nested) else keras_path
             model = tf.keras.models.load_model(model_file)
             img = Image.fromarray(region.astype(np.uint8)).resize((w, h))
@@ -287,15 +291,14 @@ def predict(region, model_name):
             pred = model.predict(arr)
             idx = int(np.argmax(pred, axis=-1)[0])
             return class_map[idx]
-        # Otherwise assume sklearn-style model
+        # sklearn modeli
         model = m_info['model']
-        w = m_info['w']
-        h = m_info['h']
+        w = m_info['w']; h = m_info['h']
         img = Image.fromarray(region.astype(np.uint8)).resize((w, h))
         pred = model.predict(np.array(img).reshape(1, -1))
         return m_info['class_map'][pred[0]]
 
-    # Fallback: standalone Keras + meta files (prefer nested)
+    # Keras + meta ikilisi
     if (os.path.exists(keras_path_nested) and os.path.exists(meta_path_nested)) or (os.path.exists(keras_path) and os.path.exists(meta_path)):
         import tensorflow as tf
         meta_file = meta_path_nested if os.path.exists(meta_path_nested) else meta_path
@@ -310,8 +313,7 @@ def predict(region, model_name):
         return class_map[idx]
 
     raise FileNotFoundError(
-        f"No model found for '{model_name}'. Expected one of: {pkl_path_nested} or ({keras_path_nested} + {meta_path_nested})"
-        f" or flat paths {pkl_path} or ({keras_path} + {meta_path})."
+        f"No model found for '{model_name}'. Expected nested or flat under {base_dir}."
     )
 
 def train_rests_above8(filename = "rests_above8.model"):
@@ -357,10 +359,13 @@ def train_sfn(filename = "sfn.model"):
             folders = detected
     model, class_map = train_tf([f"train_data/{folder}" for folder in folders])
     test_tf(model, [f"test_data/{folder}" for folder in folders])
-    # Küçük format + nested kayıt: sklearn_models/sfn/
+    # Küçük format + nested kayıt: repo_kökü/sklearn_models/sfn/
     try:
         import tensorflow as tf
-        base_dir = os.path.join("sklearn_models")
+        here = Path(__file__).resolve()
+        repo_root = here.parent.parent.parent
+        # Kayıt yeri: <repo>/oemer/sklearn_models/sfn
+        base_dir = os.path.join(str(repo_root), "oemer", "sklearn_models")
         nested_dir = os.path.join(base_dir, "sfn")
         os.makedirs(nested_dir, exist_ok=True)
         keras_out = os.path.join(nested_dir, "sfn.keras")

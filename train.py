@@ -277,7 +277,10 @@ elif model_type == "sfn":
         m_info = _pickle.load(open(fname, "rb"))
         model = m_info["model"]
         class_map = m_info["class_map"]; w = m_info["w"]; h = m_info["h"]
-        base_dir = os.path.join("sklearn_models")
+        # Kayıt noktası: <repo>/oemer/sklearn_models/sfn
+        pkg_dir = os.path.dirname(__file__)  # .../repo/oemer/oemer
+        repo_oemer_dir = os.path.abspath(os.path.join(pkg_dir, ".."))  # .../repo/oemer
+        base_dir = os.path.join(repo_oemer_dir, "sklearn_models")
         nested_dir = os.path.join(base_dir, "sfn")
         os.makedirs(nested_dir, exist_ok=True)
         keras_out = os.path.join(nested_dir, "sfn.keras")
@@ -299,7 +302,7 @@ elif model_type == "sfn":
     if final_base:
         os.makedirs(final_base, exist_ok=True)
         # Tüm sfn klasörünü kopyala
-        src_sfn_dir = os.path.join("sklearn_models", "sfn")
+        src_sfn_dir = os.path.join(repo_oemer_dir, "sklearn_models", "sfn")
         dst_sfn_dir = os.path.join(final_base, "sfn")
         try:
             _shutil.copytree(src_sfn_dir, dst_sfn_dir, dirs_exist_ok=True)
@@ -312,7 +315,7 @@ elif model_type == "sfn":
     )
     if target_path:
         os.makedirs(target_path, exist_ok=True)
-        src_sfn_dir = os.path.join("sklearn_models", "sfn")
+        src_sfn_dir = os.path.join(repo_oemer_dir, "sklearn_models", "sfn")
         dst_sfn_dir = os.path.join(target_path, "sfn")
         try:
             _shutil.copytree(src_sfn_dir, dst_sfn_dir, dirs_exist_ok=True)
