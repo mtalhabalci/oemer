@@ -260,9 +260,10 @@ def predict(region, model_name):
         region *= 255
     # Tek bir sabit kök: repo kökü (..../oemer/oemer/oemer -> repo root)
     here = Path(__file__).resolve()
-    repo_root = here.parent.parent.parent
-    # Kullanım: <repo>/oemer/sklearn_models tercih edilir
-    base_dir = os.path.join(str(repo_root), "oemer", "sklearn_models")
+    # Repo kökü: .../repo/oemer (iki seviye yukarı)
+    repo_root = here.parent.parent
+    # Modellerin yeri: <repo>/oemer/sklearn_models
+    base_dir = os.path.join(str(repo_root), "sklearn_models")
     nested_dir = os.path.join(base_dir, model_name)
     # Nested yapıyı tercih et
     pkl_path_nested = os.path.join(nested_dir, f"{model_name}.model")
@@ -363,9 +364,10 @@ def train_sfn(filename = "sfn.model"):
     try:
         import tensorflow as tf
         here = Path(__file__).resolve()
-        repo_root = here.parent.parent.parent
+        # Repo kökü: .../repo/oemer (iki seviye yukarı)
+        repo_root = here.parent.parent
         # Kayıt yeri: <repo>/oemer/sklearn_models/sfn
-        base_dir = os.path.join(str(repo_root), "oemer", "sklearn_models")
+        base_dir = os.path.join(str(repo_root), "sklearn_models")
         nested_dir = os.path.join(base_dir, "sfn")
         os.makedirs(nested_dir, exist_ok=True)
         keras_out = os.path.join(nested_dir, "sfn.keras")
