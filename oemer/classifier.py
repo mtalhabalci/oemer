@@ -258,12 +258,11 @@ def test_tf(model, folders):
 def predict(region, model_name):
     if np.max(region) == 1:
         region *= 255
-    # Tek bir sabit kök: repo kökü (..../oemer/oemer/oemer -> repo root)
+    # Sabit kök: paket dizini (..../repo/oemer/oemer)
     here = Path(__file__).resolve()
-    # Repo kökü: .../repo/oemer (iki seviye yukarı)
-    repo_root = here.parent.parent
+    pkg_dir = here.parent  # .../repo/oemer/oemer
     # Modellerin yeri: <repo>/oemer/sklearn_models
-    base_dir = os.path.join(str(repo_root), "sklearn_models")
+    base_dir = os.path.join(str(pkg_dir), "sklearn_models")
     nested_dir = os.path.join(base_dir, model_name)
     # Nested yapıyı tercih et
     pkl_path_nested = os.path.join(nested_dir, f"{model_name}.model")
@@ -364,10 +363,9 @@ def train_sfn(filename = "sfn.model"):
     try:
         import tensorflow as tf
         here = Path(__file__).resolve()
-        # Repo kökü: .../repo/oemer (iki seviye yukarı)
-        repo_root = here.parent.parent
         # Kayıt yeri: <repo>/oemer/sklearn_models/sfn
-        base_dir = os.path.join(str(repo_root), "sklearn_models")
+        pkg_dir = here.parent  # .../repo/oemer/oemer
+        base_dir = os.path.join(str(pkg_dir), "sklearn_models")
         nested_dir = os.path.join(base_dir, "sfn")
         os.makedirs(nested_dir, exist_ok=True)
         keras_out = os.path.join(nested_dir, "sfn.keras")

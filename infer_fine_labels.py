@@ -42,8 +42,9 @@ def main():
     # Resolve rest model name (auto-prefer all_rests if available)
     from pathlib import Path
     here = Path(__file__).resolve()
-    repo_root = here.parent.parent  # .../repo/oemer
-    rest_base = os.path.join(str(repo_root), "sklearn_models")
+    # Betik repo kökünde (../oemer/infer_fine_labels.py) olabilir; modeller paket altında.
+    # Modellerin yeri: <repo>/oemer/sklearn_models
+    rest_base = os.path.join(str(here.parent), "oemer", "sklearn_models")
     def _exists(model_name: str) -> bool:
         nested = os.path.join(rest_base, model_name, f"{model_name}.model")
         flat = os.path.join(rest_base, f"{model_name}.model")
